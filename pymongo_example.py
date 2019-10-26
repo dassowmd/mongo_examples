@@ -1,46 +1,91 @@
-from pymongo import MongoClient
+from pymongo import MongoClient, ReturnDocument
+
 import datetime
 from pprint import pprint
 
-client = MongoClient('mongodb://localhost:27017/')
+class mongo_obj:
+    def __init__(self):
+        self.client = MongoClient('mongodb://localhost:27017/')
+        self.db = self.client['playground'] # select the database that you would like to use
+        self.courses = self.db.courses
 
-db = client['playground'] # select the database that you would like to use
+    # Insert a course
+    def insert_course(self, course):
+        course_id = self.courses.insert_one(course).inserted_id
+        return course_id
 
-course = {"author": "Matt",
-        "name" : "Pymongo",
-         "tags": ["mongodb", "python", "pymongo"],
-         "date": datetime.datetime.utcnow(),
-        "isPublished": True}
 
-courses = db.courses
+    # Insert Many
+    def insert_courses(self, course_list):
+        result = self.courses.insert_many(course_list)
+        return result
 
-# Insert a document
-course_id = courses.insert_one(course).inserted_id
-print(course_id)
+    def update_course(self, id, course):
+        res = self.courses.find_one_and_update(
+             {'_id': id},
+            {'$set' : course},
+             return_document=ReturnDocument.AFTER)
+        return res
 
-# Insert Many
-new_courses = [{"author": "Mike",
-               "name": "Another course!",
-               "tags": ["bulk", "insert"],
-               "date": datetime.datetime(2009, 11, 12, 11, 14)},
-              {"author": "Eliot",
-               "title": "MongoDB is fun",
-               "tags": "and pretty easy too!".split(' '),
-               "date": datetime.datetime(2009, 11, 10, 10, 45)}]
-result = courses.insert_many(new_courses)
-print(result.inserted_ids)
+    # Query a course
+    def query_course(self, query_params=None):
+        if query_params:
+            query_course = self.courses.find_one(query_params)
+            return query_course
+        else:
+            query_course = self.courses.find_one(query_params)
+            return query_course
 
-# Query a document
-query_course = courses.find_one({'author': 'Matt'})
-pprint(query_course)
+    # Query many courses
+    def query_many_courses(self, query_params=None):
+        courses = []
+        if query_params:
+            res = self.courses.find(query_params)
+        else:
+            res = self.courses.find()
+        for course in res:
+            courses.append(course)
+        return courses
 
-# Query many documents
-for course in courses.find({"author": "Mike"}):
-    pprint(course)
+    # Count documents
+    def get_course_count(self, query_params=None):
+        if query_params:
+            return self.courses.count_documents(query_params)
+        else:
+            return self.courses.count_documents({})
 
-# Count documents
-print(courses.count_documents({})) # Count all
-print(courses.count_documents({"author": "Mike"})) # with filter
 
-# Delete Documents
-courses.delete_many({'title': {'$exists': True}})
+    def delete_many(self, query_params):
+        # Delete Documents
+        return self.courses.delete_many(query_params)
+
+if __name__=='__main__':
+    db_obj = mongo_obj()
+
+
+    course = {"author": "Matt",
+            "name" : "Pymongo",
+             "tags": ["mongodb", "python", "pymongo"],
+             "date": datetime.datetime.utcnow(),
+            "isPublished": True}
+    c = db_obj.insert_course(course=course)
+
+    new_courses = [{"author": "Mike",
+                    "name": "Another course!",
+                    "tags": ["bulk", "insert"],
+                    "date": datetime.datetime(2009, 11, 12, 11, 14)},
+                   {"author": "Eliot",
+                    "title": "MongoDB is fun",
+                    "tags": "and pretty easy too!".split(' '),
+                    "date": datetime.datetime(2009, 11, 10, 10, 45)}]
+    courses = db_obj.insert_courses(course_list=new_courses)
+
+    query_params = {"author": "Mike"}
+    res = db_obj.query_course(query_params=query_params)
+    print(res)
+
+    res = db_obj.query_many_courses(query_params=query_params)
+    print(res)
+
+    delete_query_params = {'title': {'$exists': True}}
+
